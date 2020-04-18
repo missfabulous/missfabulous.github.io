@@ -1,23 +1,44 @@
 let col;
-let size = 500;
+let size = 10;
 let startPos = null;
 let lastPos = null;
 let valueToUpdate = null;
+let groundLevel;
+let lastSize;
+let slideDir = null;
+let incrementSize = null;
 
-let sliders = {"tail": {"bounds": [0, 0, 0, 0],"min": size/10, "max":size/6, "value": size/7}, "belly": {"bounds":[0, 0, 0, 0],"min": -size/6, "max":0, "value": -size/12}, "leftLeg": {"bounds":[0, 0, 0, 0],"min": 0, "max":size/6,  "value":size/12}, "nose": {"bounds": [0, 0, 0, 0],"min": -size/30, "max":0, "value": 0}, "ear": {"bounds": [0, 0, 0, 0],"min": -size/10, "max":size/10, "value": size/10}}
+let sliders = {"tail": {"bounds": [0, 0, 0, 0],"min": 0, "max":0, "value": 0}, "belly": {"bounds":[0, 0, 0, 0],"min": 0, "max":0, "value": 0}, "leftLeg": {"bounds":[0, 0, 0, 0],"min": 0, "max":0,  "value":0}, "nose": {"bounds": [0, 0, 0, 0],"min": 0, "max":0, "value": 0}, "ear": {"bounds": [0, 0, 0, 0],"min": 0, "max":0, "value": 0}}
 
 function setup() {
   // create the drawing canvas, save the canvas element
+  size = min(windowHeight, windowWidth);
   createCanvas(windowWidth, windowHeight);
   colorMode(HSB, 255);
   randomiseDogColour();
-  createSliders();
+  groundLevel = windowHeight/2+size/7;
+  createSliders(size, groundLevel, sliders["leftLeg"]["value"] = random(0, size/6));
+  setStartingValues();
 }
 
 function setStartingPos(x, y, sliderName){	
 	startPos = createVector(x, y);	
-	pastPos = startPos;
+	lastPos = y;
+	if(sliderName=="nose"){
+		
+		lastPos = x;
+		
+	}
 	valueToUpdate = sliderName;
+}
+
+function setStartingValues(){
+	for(part in sliders){
+		if(part != "leftLeg"){
+			sliders[part]["value"] = random(sliders[part]["min"], sliders[part]["max"]);
+		}
+		
+	}
 }
 
 function createSliders(size, groundLevel, legHeight){
@@ -25,14 +46,24 @@ function createSliders(size, groundLevel, legHeight){
 	stroke(0);
 	//tail
 	sliders["tail"]["bounds"] = [mid+size/5, mid+size/5+size/3, groundLevel-size/1.8-legHeight,  groundLevel-size/1.8-legHeight+size/3];
+	sliders["tail"]["min"] = size/10;
+	sliders["tail"]["max"] = size/8;
 	//belly
 	sliders["belly"]["bounds"] = [mid-size/15, mid-size/15+size/5, groundLevel-size/3-legHeight, groundLevel-size/3-legHeight+size/4];
+	sliders["belly"]["min"] = -size/6;
+	sliders["belly"]["max"] = 0;
 	//left leg
 	sliders["leftLeg"]["bounds"] = [mid-size/5, mid-size/5+size/10, groundLevel-size/6-legHeight, groundLevel-size/6-legHeight+size/4+legHeight];
+	sliders["leftLeg"]["min"] = 0;
+	sliders["leftLeg"]["max"] = size/6;
 	//nose
 	sliders["nose"]["bounds"] = [mid-size/2.2, mid-size/2.2+size/6, groundLevel-size/2.2-legHeight, groundLevel-size/2.2-legHeight+size/6];
+	sliders["nose"]["min"] = -size/30;
+	sliders["nose"]["max"] = 0;
 	//ear
 	sliders["ear"]["bounds"] = [mid-size/3.5, mid-size/3.5+size/6, groundLevel-size/1.8-legHeight,  groundLevel-size/1.8-legHeight+size/4];
+	sliders["ear"]["min"] = -size/10;
+	sliders["ear"]["max"] = size/10;
 }
 
 function randomiseDogColour(){
@@ -60,12 +91,13 @@ function mouseReleased(){
 	startPos = null;
 	valueToUpdate = null;
 	lastPos = null;
+	slideDir = null;
+	incrementSize = null;
 }
 
 function draw(){
 	background(255, 0, 255);
-	let groundLevel = windowHeight/2+size/7;
-	createSliders(size, groundLevel, drawDog(col, size));
+	drawDog(col, size);
 	for(slider in sliders){
 		if(checkInBounds(sliders[slider]["bounds"])){
 			fill(0);
@@ -75,45 +107,80 @@ function draw(){
 		if(startPos!=null&&valueToUpdate==slider){		
 			let sliderMax = sliders[slider]["bounds"][3];
 			let sliderMin = sliders[slider]["bounds"][2];	
-			let mouseYbounded = mouseY;//max(min(mouseY, sliderMax), sliderMin);
+			let mouseYbounded;
+			let b;
+			let mouseVal = mouseY;
 			if(slider=="nose"){
-				mouseYbounded = mouseX;
-				if(mouseYbounded!=lastPos){
-				lastPos = mouseYbounded;
-				let adjustment = (startPos.x-mouseYbounded);
-				if(adjustment!=0){
-					adjustment/=abs(startPos.x-mouseYbounded);
+				mouseVal = mouseX;
+				sliderMax = sliders[slider]["bounds"][1];
+				sliderMin = sliders[slider]["bounds"][0];	
+			}
+			if(mouseVal!=lastPos){
+				mouseYbounded = max(min(mouseVal, sliderMax), sliderMin)
+				//if at max or min, do nothing
+				if(mouseYbounded != sliderMin && mouseYbounded != sliderMax){
+					if(slideDir==null){
+					if(lastPos<mouseYbounded){
+						slideDir = 1;
+						b = 3;
+						if(slider=="nose"){
+							b = 1;
+						}
+					}
+					else{
+						slideDir = -1;
+						b = 2;
+						if(slider=="nose"){
+							b = 0;
+						}
+					}
+					setIncrement(mouseYbounded, b);
 				}
-				adjustment*=2;
-				let sliderValue = sliders[slider]["value"]+adjustment;
-				sliders[slider]["value"] = min(max(sliderValue, sliders[slider]["min"]), sliders[slider]["max"]);	
-				
-			}
-			}
-			else{
-				if(mouseYbounded!=lastPos){
-				lastPos = mouseYbounded;
-				let adjustment = (startPos.y-mouseYbounded);
-				if(adjustment!=0){
-					adjustment/=abs(startPos.y-mouseYbounded);
+				let changeDir = false;
+				if(lastPos<mouseYbounded&&slideDir!=1){
+					slideDir = 1;
+					b = 3;
+					if(slider=="nose"){
+							b = 1;
+						}
+					changeDir = true;
 				}
-				adjustment*=2;
-				let sliderValue = sliders[slider]["value"]+adjustment;
-				sliders[slider]["value"] = min(max(sliderValue, sliders[slider]["min"]), sliders[slider]["max"]);	
-				
+				else if(lastPos>mouseYbounded&&slideDir!=-1){
+					slideDir = -1;
+					b = 2;
+					if(slider=="nose"){
+							b = 0;
+						}
+					changeDir = true;
+				}
+				if(changeDir){
+					setIncrement(mouseYbounded, b);
+				}
+				let sliderValue = map(mouseYbounded, incrementSize[0], incrementSize[1], incrementSize[2], incrementSize[3]);
+				sliders[slider]["value"] = min(max(sliderValue, sliders[slider]["min"]), sliders[slider]["max"]);					
+				}						
+				lastPos = mouseYbounded;
 			}
-				
-			}
-			
-			
-			
+					
 		}
 		
 	}		
 }
 
+function setIncrement(mouseYbounded, b){
+	incrementSize = [mouseYbounded, sliders[valueToUpdate]["bounds"][b], sliders[valueToUpdate]["value"], sliders[valueToUpdate]["min"]];
+	if(slideDir==-1){
+		incrementSize = [sliders[valueToUpdate]["bounds"][b], mouseYbounded, sliders[valueToUpdate]["max"], sliders[valueToUpdate]["value"]];
+	}
+}
+
 function windowResized() {
+	lastSize = JSON.parse(JSON.stringify(sliders));
 	resizeCanvas(windowWidth, windowHeight, true);
+	size = min(windowHeight, windowWidth);
+	groundLevel = windowHeight/2+size/7;
+	createSliders(size, groundLevel, sliders["leftLeg"]["value"]);	
+	scaleValues();
 }
 
 function drawDog(midColour, size) {	
@@ -266,6 +333,13 @@ function drawTail(dogShape, tailLength, headLength, size){
 
 }
 
+
+function scaleValues(){
+	for(part in sliders){
+		sliders[part]["value"] = map(lastSize[part]["value"], lastSize[part]["min"], lastSize[part]["max"], sliders[part]["min"], sliders[part]["max"]);
+	}
+	lastSize = size;
+}
 
 function drawEars(midColour, headX, headY, headLength, headHeight, earLength){
 //ears
